@@ -145,6 +145,11 @@ class PortalRunner:
         self.renderer.setup_3d_projection(self.width, self.height)
         glLoadIdentity()
 
+        # Ensure proper lighting state before rendering
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glColor3f(1.0, 1.0, 1.0)
+
         # Position camera behind player
         player_pos = self.player.get_position()
         gluLookAt(
@@ -152,6 +157,10 @@ class PortalRunner:
             player_pos[0], player_pos[1], player_pos[2] - 5,  # Look at position
             0, 1, 0  # Up vector
         )
+
+        # Update light position after setting camera
+        light_position = [player_pos[0] + 5.0, player_pos[1] + 10.0, player_pos[2] + 5.0, 1.0]
+        glLightfv(GL_LIGHT0, GL_POSITION, light_position)
 
         # Draw world and player
         self.renderer.draw_world(self.world_manager, self.player)
@@ -193,6 +202,9 @@ class PortalRunner:
 
     def draw_lane_indicators(self):
         """Draw visual indicators for the 3 lanes at the bottom of screen"""
+        # Save current OpenGL state
+        glPushAttrib(GL_CURRENT_BIT)
+
         # Draw three rectangles representing the lanes
         lane_width = 60
         lane_height = 10
@@ -222,6 +234,12 @@ class PortalRunner:
             glVertex2f(x_pos + lane_width // 2, y_pos + lane_height)
             glVertex2f(x_pos - lane_width // 2, y_pos + lane_height)
             glEnd()
+
+        # Restore OpenGL state - this ensures the color is reset
+        glPopAttrib()
+
+        # Explicitly reset color to white for subsequent rendering
+        glColor3f(1.0, 1.0, 1.0)
 
     def render_menu(self):
         """Render main menu"""

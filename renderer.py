@@ -32,22 +32,29 @@ class Renderer:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-        # Initialize lighting
+        # Initialize lighting with more robust setup
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
 
-        # Light position and properties
+        # Light position and properties (more stable lighting)
         light_position = [5.0, 10.0, 5.0, 1.0]
-        light_ambient = [0.3, 0.3, 0.3, 1.0]
-        light_diffuse = [1.0, 1.0, 1.0, 1.0]
+        light_ambient = [0.4, 0.4, 0.4, 1.0]  # Increased ambient
+        light_diffuse = [0.8, 0.8, 0.8, 1.0]  # Reduced diffuse for more stable lighting
         light_specular = [1.0, 1.0, 1.0, 1.0]
 
         glLightfv(GL_LIGHT0, GL_POSITION, light_position)
         glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient)
         glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse)
         glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular)
+
+        # Set model lighting parameters for more stable appearance
+        glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_FALSE)
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.3, 0.3, 0.3, 1.0])
+
+        # Ensure proper default color
+        glColor3f(1.0, 1.0, 1.0)
 
     def setup_3d_projection(self, width, height):
         """Set up 3D perspective projection"""
@@ -58,8 +65,12 @@ class Renderer:
 
     def setup_2d_projection(self, width, height):
         """Set up 2D orthographic projection for UI"""
+        # Save current OpenGL state including lighting
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LIGHTING_BIT)
+
         glDisable(GL_LIGHTING)
         glDisable(GL_TEXTURE_2D)
+        glDisable(GL_DEPTH_TEST)  # Disable depth testing for UI
 
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
@@ -77,8 +88,19 @@ class Renderer:
         glMatrixMode(GL_MODELVIEW)
         glPopMatrix()
 
-        glEnable(GL_TEXTURE_2D)
+        # Restore all OpenGL state including lighting
+        glPopAttrib()
+
+        # Ensure proper lighting state is restored
         glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glEnable(GL_TEXTURE_2D)
+        glEnable(GL_DEPTH_TEST)
+
+        # Reset color to white and ensure proper color material
+        glColor3f(1.0, 1.0, 1.0)
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
 
     def draw_text(self, x, y, text, font=None):
         """Draw text at given position"""
@@ -237,6 +259,9 @@ class Renderer:
 
     def draw_player(self, player):
         """Draw the player character"""
+        # Ensure proper color state
+        glColor3f(1.0, 1.0, 1.0)
+
         pos = player.get_position()
         glPushMatrix()
         glTranslatef(pos[0], pos[1], pos[2])
@@ -248,6 +273,9 @@ class Renderer:
 
     def draw_textured_cube(self, size=1.0):
         """Draw a textured cube centered at the origin"""
+        # Ensure normal vectors are properly set for lighting
+        glEnable(GL_NORMALIZE)  # Normalize normals for proper lighting
+
         # Define the vertices of a cube
         vertices = [
             # Front face
@@ -290,9 +318,20 @@ class Renderer:
             [0.0, 1.0]
         ]
 
-        # Draw the textured cube
+        # Define normals for each face
+        normals = [
+            [0, 0, 1],  # Front
+            [0, 0, -1],  # Back
+            [0, 1, 0],  # Top
+            [0, -1, 0],  # Bottom
+            [1, 0, 0],  # Right
+            [-1, 0, 0]  # Left
+        ]
+
+        # Draw the textured cube with proper normals
         glBegin(GL_QUADS)
         for face in range(6):
+            glNormal3f(normals[face][0], normals[face][1], normals[face][2])
             for i in range(4):
                 glTexCoord2f(tex_coords[i][0], tex_coords[i][1])
                 glVertex3f(vertices[face * 4 + i][0], vertices[face * 4 + i][1], vertices[face * 4 + i][2])
@@ -356,6 +395,9 @@ class Renderer:
         fog_color = [world_color[0] * 0.8, world_color[1] * 0.8, world_color[2] * 0.8, 1.0]
         glFogfv(GL_FOG_COLOR, fog_color)
 
+        # Reset color to white for 3D rendering
+        glColor3f(1.0, 1.0, 1.0)
+
         texture_name = world_manager.get_world_texture_name()
 
         # Draw chunks that are near the player (increased range)
@@ -367,13 +409,16 @@ class Renderer:
 
             # Draw platforms
             for platform in chunk.platforms:
+                glColor3f(1.0, 1.0, 1.0)  # Ensure white color for each platform
                 self.draw_platform(platform, texture_name)
 
             # Draw coins
             for coin in chunk.coins:
                 if not coin['collected']:
+                    glColor3f(1.0, 1.0, 1.0)  # Ensure white color for each coin
                     self.draw_coin(coin)
 
             # Draw portals
             for portal in chunk.portals:
+                glColor3f(1.0, 1.0, 1.0)  # Ensure white color for each portal
                 self.draw_portal(portal)
