@@ -24,9 +24,6 @@ LANE_POSITIONS = {
     Lane.RIGHT: 2.5
 }
 
-# Lane switching
-LANE_SWITCH_SPEED = 0.3  # How fast player moves between lanes
-
 # Game Configuration
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
@@ -36,9 +33,20 @@ CAMERA_DISTANCE = 5
 
 # Player Settings
 PLAYER_SPEED = 0.15  # Not used for lane movement anymore
-PLATFORM_SPEED = 0.2
+BASE_PLATFORM_SPEED = 0.2  # Starting speed
+MAX_PLATFORM_SPEED = 1.0   # Maximum speed cap (increased for more challenge)
+SPEED_INCREASE_INTERVAL = 200  # Speed increases every 200 distance units (instead of 1000)
+SPEED_INCREASE_RATE = 0.1  # Speed increase rate (doubled from 0.05)
 JUMP_HEIGHT_MAX = 1.2
 JUMP_SPEED = 0.1
+
+# Lane switching (also gets faster with speed)
+BASE_LANE_SWITCH_SPEED = 0.3
+MAX_LANE_SWITCH_SPEED = 0.8  # Faster lane switching at high speeds
+
+# Legacy constants for backward compatibility
+PLATFORM_SPEED = BASE_PLATFORM_SPEED
+LANE_SWITCH_SPEED = BASE_LANE_SWITCH_SPEED
 
 # World Colors
 WORLD_COLORS = {

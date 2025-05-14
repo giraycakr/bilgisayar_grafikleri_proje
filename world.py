@@ -9,6 +9,48 @@ import time
 from constants import *
 
 
+class SpeedManager:
+    """Manages progressive speed increase"""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """Reset speed to base values"""
+        self.current_platform_speed = BASE_PLATFORM_SPEED
+        self.current_lane_switch_speed = BASE_LANE_SWITCH_SPEED
+        self.speed_multiplier = 1.0
+
+    def update(self, distance_traveled):
+        """Update speed based on distance traveled"""
+        # Calculate speed multiplier based on distance (every SPEED_INCREASE_INTERVAL units increases speed)
+        speed_increase = (abs(distance_traveled) // SPEED_INCREASE_INTERVAL) * SPEED_INCREASE_RATE
+        self.speed_multiplier = 1.0 + speed_increase
+
+        # Apply speed multiplier with caps
+        self.current_platform_speed = min(
+            BASE_PLATFORM_SPEED * self.speed_multiplier,
+            MAX_PLATFORM_SPEED
+        )
+
+        self.current_lane_switch_speed = min(
+            BASE_LANE_SWITCH_SPEED * self.speed_multiplier,
+            MAX_LANE_SWITCH_SPEED
+        )
+
+    def get_platform_speed(self):
+        """Get current platform speed"""
+        return self.current_platform_speed
+
+    def get_lane_switch_speed(self):
+        """Get current lane switch speed"""
+        return self.current_lane_switch_speed
+
+    def get_speed_multiplier(self):
+        """Get current speed multiplier for display"""
+        return self.speed_multiplier
+
+
 class PlatformChunk:
     """Represents a chunk of platforms, coins, and portals"""
 
@@ -132,12 +174,14 @@ class WorldManager:
         self.platform_chunks = []
         self.last_chunk_z = 0
         self.chunk_counter = 0
+        self.speed_manager = SpeedManager()
 
     def reset(self):
         """Reset world for new game"""
         self.platform_chunks = []
         self.last_chunk_z = 0
         self.chunk_counter = 0
+        self.speed_manager.reset()
         self.generate_initial_chunks()
 
     def generate_initial_chunks(self):
@@ -156,6 +200,9 @@ class WorldManager:
 
     def update(self, player_z):
         """Update world generation and remove old chunks"""
+        # Update speed based on distance traveled
+        self.speed_manager.update(player_z)
+
         # Generate new chunks ahead of the player
         while self.last_chunk_z > player_z - CHUNK_LENGTH * 3:
             self.last_chunk_z -= CHUNK_LENGTH
@@ -169,6 +216,18 @@ class WorldManager:
         # Update all chunks
         for chunk in self.platform_chunks:
             chunk.update()
+
+    def get_current_speed(self):
+        """Get current platform speed"""
+        return self.speed_manager.get_platform_speed()
+
+    def get_lane_switch_speed(self):
+        """Get current lane switch speed"""
+        return self.speed_manager.get_lane_switch_speed()
+
+    def get_speed_multiplier(self):
+        """Get current speed multiplier"""
+        return self.speed_manager.get_speed_multiplier()
 
     def check_platform_collision(self, player):
         """Check if player is on a platform"""

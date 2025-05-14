@@ -55,8 +55,12 @@ class PortalRunner:
 
     def update_playing(self):
         """Update game when playing"""
-        # Update player
-        self.player.update()
+        # Get current speeds from world manager
+        platform_speed = self.world_manager.get_current_speed()
+        lane_switch_speed = self.world_manager.get_lane_switch_speed()
+
+        # Update player with dynamic speeds
+        self.player.update(platform_speed, lane_switch_speed)
 
         # Update world
         self.world_manager.update(self.player.z)
@@ -170,76 +174,22 @@ class PortalRunner:
         self.render_ui()
 
     def render_ui(self):
-        """Render game UI (score, etc.)"""
+        """Render game UI (minimal, focused on gameplay)"""
         self.renderer.setup_2d_projection(self.width, self.height)
 
-        # Draw score text
+        # Just the essential info
         glColor3f(1.0, 1.0, 1.0)
         self.renderer.draw_text(10, self.height - 20, f"Score: {self.score}")
-        self.renderer.draw_text(10, self.height - 40, f"High Score: {self.high_score}")
-        self.renderer.draw_text(10, self.height - 60, f"Distance: {int(-self.player.z)}")
+        self.renderer.draw_text(10, self.height - 40, f"Distance: {int(-self.player.z)}")
 
-        # Debug info
-        world_name = self.world_manager.current_world.name
-        self.renderer.draw_text(10, self.height - 80, f"World: {world_name}")
-
-        # Show current lane
-        lane_name = self.player.get_current_lane().name
-        self.renderer.draw_text(10, self.height - 100, f"Lane: {lane_name}")
-
-        # Show portal counter in nearby chunks
-        player_z = self.player.z
-        portal_count = 0
-        for chunk in self.world_manager.platform_chunks:
-            if abs(chunk.start_z - player_z) < 50:  # Count portals in nearby chunks
-                portal_count += len(chunk.portals)
-        self.renderer.draw_text(10, self.height - 120, f"Nearby Portals: {portal_count}")
-
-        # Draw lane indicators (visual guides)
-        self.draw_lane_indicators()
+        # Show speed multiplier only
+        speed_multiplier = self.world_manager.get_speed_multiplier()
+        glColor3f(1.0, 1.0, 0.0)  # Yellow for speed
+        self.renderer.draw_text(10, self.height - 60, f"Speed: {speed_multiplier:.1f}x")
 
         self.renderer.restore_3d_projection()
 
-    def draw_lane_indicators(self):
-        """Draw visual indicators for the 3 lanes at the bottom of screen"""
-        # Save current OpenGL state
-        glPushAttrib(GL_CURRENT_BIT)
-
-        # Draw three rectangles representing the lanes
-        lane_width = 60
-        lane_height = 10
-        y_pos = 30
-        center_x = self.width // 2
-
-        # Define lane positions on screen
-        lane_screen_positions = {
-            Lane.LEFT: center_x - 100,
-            Lane.CENTER: center_x,
-            Lane.RIGHT: center_x + 100
-        }
-
-        # Draw each lane indicator
-        current_lane = self.player.get_current_lane()
-        for lane, x_pos in lane_screen_positions.items():
-            # Highlight current lane
-            if lane == current_lane:
-                glColor3f(1.0, 1.0, 0.0)  # Yellow for current lane
-            else:
-                glColor3f(0.3, 0.3, 0.3)  # Gray for other lanes
-
-            # Draw rectangle
-            glBegin(GL_QUADS)
-            glVertex2f(x_pos - lane_width // 2, y_pos)
-            glVertex2f(x_pos + lane_width // 2, y_pos)
-            glVertex2f(x_pos + lane_width // 2, y_pos + lane_height)
-            glVertex2f(x_pos - lane_width // 2, y_pos + lane_height)
-            glEnd()
-
-        # Restore OpenGL state - this ensures the color is reset
-        glPopAttrib()
-
-        # Explicitly reset color to white for subsequent rendering
-        glColor3f(1.0, 1.0, 1.0)
+    # Remove the speed bar and lane indicator methods - focusing on gameplay only
 
     def render_menu(self):
         """Render main menu"""

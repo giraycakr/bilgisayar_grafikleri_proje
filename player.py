@@ -21,25 +21,28 @@ class Player:
         self.is_jumping = False
         self.is_moving_lanes = False
 
-    def update(self):
-        """Update player physics"""
+    def update(self, platform_speed, lane_switch_speed):
+        """Update player physics with dynamic speeds"""
         # Handle jump animation
         if self.is_jumping:
-            self.jump_height += JUMP_SPEED
+            jump_speed = JUMP_SPEED * (
+                        1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)  # Slightly faster jumps at high speed
+            self.jump_height += jump_speed
             if self.jump_height >= JUMP_HEIGHT_MAX:
                 self.is_jumping = False
         elif self.jump_height > 0:
-            self.jump_height -= JUMP_SPEED
+            jump_speed = JUMP_SPEED * (1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)
+            self.jump_height -= jump_speed
             if self.jump_height < 0:
                 self.jump_height = 0
 
         # Handle lane movement (smooth transition between lanes)
         if self.is_moving_lanes:
-            # Move towards target lane position
+            # Move towards target lane position with dynamic speed
             diff = self.target_x - self.x
             if abs(diff) > 0.1:
-                # Still moving
-                move_speed = LANE_SWITCH_SPEED
+                # Still moving - use dynamic lane switch speed
+                move_speed = lane_switch_speed
                 if diff > 0:
                     self.x += move_speed
                     if self.x > self.target_x:
@@ -53,8 +56,8 @@ class Player:
                 self.x = self.target_x
                 self.is_moving_lanes = False
 
-        # Move player forward automatically
-        self.z -= PLATFORM_SPEED
+        # Move player forward automatically with dynamic speed
+        self.z -= platform_speed
 
     def move_left(self):
         """Move player to left lane"""
