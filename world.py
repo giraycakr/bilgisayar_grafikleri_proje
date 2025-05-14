@@ -28,9 +28,9 @@ class PlatformChunk:
 
         # Ensure first platform is always at the chunk start for initial chunks
         if self.chunk_id < 3:  # First few chunks should have guaranteed platforms
-            width = 4.0
+            width = PLATFORM_WIDTH  # Use consistent width for 3-lane system
             length = 10.0
-            x_offset = 0  # Centered for initial platforms
+            x_offset = 0  # Always centered for 3-lane system
 
             platform = {
                 'x': x_offset,
@@ -44,15 +44,12 @@ class PlatformChunk:
 
         # Generate rest of platforms normally
         while current_z > self.start_z - CHUNK_LENGTH:
-            # Random platform width and length
-            width = random.uniform(3.0, 6.0)
-            length = random.uniform(8.0, 15.0)
+            # Fixed width for 3-lane system, random length
+            width = PLATFORM_WIDTH
+            length = random.uniform(MIN_PLATFORM_LENGTH, MAX_PLATFORM_LENGTH)
 
-            # Random horizontal offset (less extreme for early chunks)
-            if self.chunk_id < 5:
-                x_offset = random.uniform(-1.0, 1.0)  # Less offset for early platforms
-            else:
-                x_offset = random.uniform(-2.0, 2.0)
+            # Always centered for 3-lane system
+            x_offset = 0
 
             # Create platform
             platform = {
@@ -74,23 +71,26 @@ class PlatformChunk:
                 current_z -= gap
 
     def generate_coins(self):
-        """Generate coins on platforms"""
+        """Generate coins on platforms aligned with lanes"""
         for platform in self.platforms:
             # Chance of having coins on a platform
             if random.random() < COIN_CHANCE:
-                num_coins = random.randint(1, 3)
-                for _ in range(num_coins):
-                    coin_x = platform['x'] + random.uniform(-platform['width'] / 3, platform['width'] / 3)
-                    coin_z = platform['z'] - random.uniform(1, platform['length'] - 1)
+                # Generate coins in lanes
+                for lane in [Lane.LEFT, Lane.CENTER, Lane.RIGHT]:
+                    # 60% chance for each lane to have a coin
+                    if random.random() < 0.6:
+                        coin_x = LANE_POSITIONS[lane]
+                        coin_z = platform['z'] - random.uniform(1, platform['length'] - 1)
 
-                    coin = {
-                        'x': coin_x,
-                        'y': platform['y'] + 0.5,
-                        'z': coin_z,
-                        'rotation': random.uniform(0, 360),
-                        'collected': False
-                    }
-                    self.coins.append(coin)
+                        coin = {
+                            'x': coin_x,
+                            'y': platform['y'] + 0.5,
+                            'z': coin_z,
+                            'rotation': random.uniform(0, 360),
+                            'collected': False,
+                            'lane': lane  # Track which lane this coin is in
+                        }
+                        self.coins.append(coin)
 
     def maybe_add_portal(self):
         """Chance to add a portal to this chunk"""
@@ -99,17 +99,12 @@ class PlatformChunk:
             return
 
         if random.random() < PORTAL_CHANCE and self.platforms:
-            # Choose a platform that's relatively centered and large enough
-            suitable_platforms = [p for p in self.platforms
-                                  if abs(p['x']) < 1.5 and p['width'] > 3.0]
+            # Choose a platform for the portal
+            platform = random.choice(self.platforms)
 
-            if not suitable_platforms:
-                return
-
-            platform = random.choice(suitable_platforms)
-
+            # Place portal in center lane
             portal = {
-                'x': platform['x'],
+                'x': LANE_POSITIONS[Lane.CENTER],  # Always in center lane
                 'y': platform['y'] + 1.5,  # Higher up to be more visible
                 'z': platform['z'] - platform['length'] / 2,
                 'rotation': 0,

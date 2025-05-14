@@ -174,15 +174,54 @@ class PortalRunner:
         world_name = self.world_manager.current_world.name
         self.renderer.draw_text(10, self.height - 80, f"World: {world_name}")
 
+        # Show current lane
+        lane_name = self.player.get_current_lane().name
+        self.renderer.draw_text(10, self.height - 100, f"Lane: {lane_name}")
+
         # Show portal counter in nearby chunks
         player_z = self.player.z
         portal_count = 0
         for chunk in self.world_manager.platform_chunks:
             if abs(chunk.start_z - player_z) < 50:  # Count portals in nearby chunks
                 portal_count += len(chunk.portals)
-        self.renderer.draw_text(10, self.height - 100, f"Nearby Portals: {portal_count}")
+        self.renderer.draw_text(10, self.height - 120, f"Nearby Portals: {portal_count}")
+
+        # Draw lane indicators (visual guides)
+        self.draw_lane_indicators()
 
         self.renderer.restore_3d_projection()
+
+    def draw_lane_indicators(self):
+        """Draw visual indicators for the 3 lanes at the bottom of screen"""
+        # Draw three rectangles representing the lanes
+        lane_width = 60
+        lane_height = 10
+        y_pos = 30
+        center_x = self.width // 2
+
+        # Define lane positions on screen
+        lane_screen_positions = {
+            Lane.LEFT: center_x - 100,
+            Lane.CENTER: center_x,
+            Lane.RIGHT: center_x + 100
+        }
+
+        # Draw each lane indicator
+        current_lane = self.player.get_current_lane()
+        for lane, x_pos in lane_screen_positions.items():
+            # Highlight current lane
+            if lane == current_lane:
+                glColor3f(1.0, 1.0, 0.0)  # Yellow for current lane
+            else:
+                glColor3f(0.3, 0.3, 0.3)  # Gray for other lanes
+
+            # Draw rectangle
+            glBegin(GL_QUADS)
+            glVertex2f(x_pos - lane_width // 2, y_pos)
+            glVertex2f(x_pos + lane_width // 2, y_pos)
+            glVertex2f(x_pos + lane_width // 2, y_pos + lane_height)
+            glVertex2f(x_pos - lane_width // 2, y_pos + lane_height)
+            glEnd()
 
     def render_menu(self):
         """Render main menu"""
@@ -190,14 +229,13 @@ class PortalRunner:
 
         # Draw title
         glColor3f(1.0, 1.0, 0.0)  # Yellow
-        self.renderer.draw_centered_text(self.height - 100, "PORTAL RUNNER - INFINITE", self.width)
+        self.renderer.draw_centered_text(self.height - 100, "PORTAL RUNNER - 3 LANES", self.width)
 
         # Draw instructions
         glColor3f(1.0, 1.0, 1.0)  # White
         self.renderer.draw_centered_text(self.height // 2, "Press SPACE to start", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 30, "Use A/D to move left/right, W to jump", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 60, "Run through infinite platforms and portals!",
-                                         self.width)
+        self.renderer.draw_centered_text(self.height // 2 - 30, "Use A/D to switch lanes, W to jump", self.width)
+        self.renderer.draw_centered_text(self.height // 2 - 60, "Run through 3 lanes and collect coins!", self.width)
 
         self.renderer.restore_3d_projection()
 
