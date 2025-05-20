@@ -20,21 +20,27 @@ class Player:
         self.jump_height = 0
         self.is_jumping = False
         self.is_moving_lanes = False
+        self.is_fast_falling = False  # Add this for quick landing
 
     def update(self, platform_speed, lane_switch_speed):
         """Update player physics with dynamic speeds"""
         # Handle jump animation
         if self.is_jumping:
-            jump_speed = JUMP_SPEED * (
-                        1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)  # Slightly faster jumps at high speed
+            jump_speed = JUMP_SPEED * (1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)
             self.jump_height += jump_speed
             if self.jump_height >= JUMP_HEIGHT_MAX:
                 self.is_jumping = False
         elif self.jump_height > 0:
-            jump_speed = JUMP_SPEED * (1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)
-            self.jump_height -= jump_speed
+            fall_speed = JUMP_SPEED * (1 + (platform_speed - BASE_PLATFORM_SPEED) * 0.5)
+
+            # Apply faster falling if S key was pressed
+            if self.is_fast_falling:
+                fall_speed *= 3.0  # Fall 3x faster when pressing S
+
+            self.jump_height -= fall_speed
             if self.jump_height < 0:
                 self.jump_height = 0
+                self.is_fast_falling = False  # Reset fast falling when landing
 
         # Handle lane movement (smooth transition between lanes)
         if self.is_moving_lanes:
@@ -58,6 +64,12 @@ class Player:
 
         # Move player forward automatically with dynamic speed
         self.z -= platform_speed
+
+    def quick_land(self):
+        """Make player fall faster when S is pressed"""
+        if self.jump_height > 0:
+            self.is_jumping = False
+            self.is_fast_falling = True
 
     def move_left(self):
         """Move player to left lane"""
@@ -86,11 +98,7 @@ class Player:
         if not self.is_jumping and (self.jump_height == 0 or allow_coyote_jump):
             self.is_jumping = True
 
-    def quick_land(self):
-        """Make player quickly return to the ground if jumping"""
-        if self.jump_height > 0:
-            self.is_jumping = False
-            self.jump_height = 0
+
     def get_position(self):
         """Get player's current position"""
         return (self.x, self.y + self.jump_height, self.z)

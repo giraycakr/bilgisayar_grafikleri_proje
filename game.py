@@ -2,28 +2,67 @@
 """
 Main Game class for Portal Runner
 """
-
+import os
 import random
 import time
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
+from audio import AudioManager
 from constants import *
 from player import Player
 from world import WorldManager
 from textures import TextureManager
 from renderer import Renderer
 
+import json
 
+
+# Add these methods to the PortalRunner class
+def load_high_scores(self):
+    """Load high scores from JSON file"""
+    self.high_scores = []
+    try:
+        with open("high_scores.json", "r") as f:
+            self.high_scores = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Create a new high scores file if it doesn't exist
+        self.high_scores = []
+        self.save_high_scores()
+
+
+def save_high_scores(self):
+    """Save high scores to JSON file"""
+    with open("high_scores.json", "w") as f:
+        json.dump(self.high_scores, f)
+
+
+def add_high_score(self, name, score):
+    """Add a new high score"""
+    # Add the new score
+    new_entry = {"name": name, "score": score}
+    self.high_scores.append(new_entry)
+
+    # Sort high scores (highest first)
+    self.high_scores.sort(key=lambda x: x["score"], reverse=True)
+
+    # Keep only top 5 scores
+    self.high_scores = self.high_scores[:5]
+
+    # Save to file
+    self.save_high_scores()
 class PortalRunner:
     def __init__(self, width=WINDOW_WIDTH, height=WINDOW_HEIGHT):
+        self.coyote_time = 0.08
         self.width = width
         self.height = height
         self.game_state = GameState.MENU
         self.score = 0
         self.high_score = 0
-        self.last_on_platform = 0  # Add this line to track when player was last on platform
-        self.coyote_time = 0.08  # Allow jumping for 0.15 seconds after leaving platform
+
+        # Player name and high scores
+        self.player_name = ""
+        self.input_active = False
 
         # Game objects
         self.player = Player()
@@ -31,9 +70,46 @@ class PortalRunner:
         self.texture_manager = TextureManager()
         self.renderer = Renderer(self.texture_manager)
 
+        # Audio
+        self.audio_manager = AudioManager()
+
         # Portal transition variables
         self.transition_start_time = 0
         self.next_world = None
+
+        # Load high scores
+        self.load_high_scores()
+
+    def load_high_scores(self):
+        """Load high scores from JSON file"""
+        self.high_scores = []
+        try:
+            with open("high_scores.json", "r") as f:
+                self.high_scores = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # Create a new high scores file if it doesn't exist
+            self.high_scores = []
+            self.save_high_scores()
+
+    def save_high_scores(self):
+        """Save high scores to JSON file"""
+        with open("high_scores.json", "w") as f:
+            json.dump(self.high_scores, f)
+
+    def add_high_score(self, name, score):
+        """Add a new high score"""
+        # Add the new score
+        new_entry = {"name": name, "score": score}
+        self.high_scores.append(new_entry)
+
+        # Sort high scores (highest first)
+        self.high_scores.sort(key=lambda x: x["score"], reverse=True)
+
+        # Keep only top 5 scores
+        self.high_scores = self.high_scores[:5]
+
+        # Save to file
+        self.save_high_scores()
 
     def init(self):
         """Initialize the game"""
@@ -41,13 +117,40 @@ class PortalRunner:
         self.texture_manager.init_all_textures()
         self.world_manager.reset()
 
+        # Initialize audio
+        os.makedirs("music", exist_ok=True)
+        if self.audio_manager.load_background_music("music/background.mp3"):
+            self.audio_manager.play_background_music(loop=True)
+        else:
+            print("No background music found. Create a 'music' folder and add 'background.mp3'")
+
+    def init_audio(self):
+        """Initialize audio"""
+        # Check if music file exists, if not, we'll just proceed without music
+        if self.audio_manager.load_background_music("music/background.mp3"):
+            self.audio_manager.play_background_music(loop=True)
+        else:
+            print("Background music not found, continuing without music")
+            # Try to create music directory for future use
+            os.makedirs("music", exist_ok=True)
+
     def reset_game(self):
         """Reset the game for a new run"""
+        # Check if previous score is a high score
+        if self.game_state == GameState.GAME_OVER and self.score > 0:
+            # If no high scores yet or score is better than lowest high score
+            if not self.high_scores or len(self.high_scores) < 5 or self.score > min(
+                    entry["score"] for entry in self.high_scores):
+                # Make sure we have a player name
+                if not self.player_name:
+                    self.player_name = "Player"
+                self.add_high_score(self.player_name, self.score)
+
+        # Reset game state
         self.player.reset()
         self.world_manager.reset()
         self.score = 0
         self.game_state = GameState.PLAYING
-
     def update(self):
         """Update game state"""
         if self.game_state == GameState.PLAYING:
@@ -210,11 +313,36 @@ class PortalRunner:
         glColor3f(1.0, 1.0, 0.0)  # Yellow
         self.renderer.draw_centered_text(self.height - 100, "PORTAL RUNNER - 3 LANES", self.width)
 
-        # Draw instructions
+        # Draw name input
         glColor3f(1.0, 1.0, 1.0)  # White
-        self.renderer.draw_centered_text(self.height // 2, "Press SPACE to start", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 30, "Use A/D to switch lanes, W to jump", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 60, "Run through 3 lanes and collect coins!", self.width)
+        self.renderer.draw_centered_text(self.height // 2 + 60, "Enter Your Name:", self.width)
+
+        # Highlight input box if active
+        if self.input_active:
+            glColor3f(0.0, 1.0, 0.0)  # Green for active input
+        else:
+            glColor3f(0.7, 0.7, 0.7)  # Gray for inactive input
+
+        # Draw input box
+        input_text = self.player_name + ("_" if self.input_active else "")
+        self.renderer.draw_centered_text(self.height // 2 + 30, input_text, self.width)
+
+        # Instructions
+        glColor3f(1.0, 1.0, 1.0)  # White
+        self.renderer.draw_centered_text(self.height // 2, "Click to input name, ENTER to confirm", self.width)
+        self.renderer.draw_centered_text(self.height // 2 - 30, "Press SPACE to start", self.width)
+        self.renderer.draw_centered_text(self.height // 2 - 60, "Use A/D to switch lanes, W to jump, S to quick land",
+                                         self.width)
+
+        # Draw high scores
+        if self.high_scores:
+            glColor3f(1.0, 1.0, 0.0)  # Yellow
+            self.renderer.draw_centered_text(self.height // 2 - 100, "HIGH SCORES", self.width)
+
+            for i, entry in enumerate(self.high_scores[:5]):
+                glColor3f(1.0, 1.0, 1.0)  # White
+                score_text = f"{i + 1}. {entry['name']}: {entry['score']}"
+                self.renderer.draw_centered_text(self.height // 2 - 130 - (i * 20), score_text, self.width)
 
         self.renderer.restore_3d_projection()
 
@@ -228,12 +356,21 @@ class PortalRunner:
 
         # Draw final score
         glColor3f(1.0, 1.0, 1.0)  # White
-        self.renderer.draw_centered_text(self.height // 2, f"Final Score: {self.score}", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 30, f"Distance Traveled: {int(-self.player.z)}", self.width)
-        self.renderer.draw_centered_text(self.height // 2 - 60, "Press SPACE to restart", self.width)
+        self.renderer.draw_centered_text(self.height // 2 + 30, f"Final Score: {self.score}", self.width)
+        self.renderer.draw_centered_text(self.height // 2, f"Distance Traveled: {int(-self.player.z)}", self.width)
+        self.renderer.draw_centered_text(self.height // 2 - 30, "Press SPACE to restart", self.width)
+
+        # Draw high scores
+        if self.high_scores:
+            glColor3f(1.0, 1.0, 0.0)  # Yellow
+            self.renderer.draw_centered_text(self.height // 2 - 80, "HIGH SCORES", self.width)
+
+            for i, entry in enumerate(self.high_scores[:5]):
+                glColor3f(1.0, 1.0, 1.0)  # White
+                score_text = f"{i + 1}. {entry['name']}: {entry['score']}"
+                self.renderer.draw_centered_text(self.height // 2 - 110 - (i * 20), score_text, self.width)
 
         self.renderer.restore_3d_projection()
-
     def render_portal_transition(self):
         """Render portal transition effect"""
         current_time = time.time()
@@ -255,11 +392,9 @@ class PortalRunner:
             elif key == 'd':
                 self.player.move_right()
             elif key == 'w':
-                # Allow jumping during coyote time
-                coyote_jump = (time.time() - self.last_on_platform) < self.coyote_time
-                self.player.jump(allow_coyote_jump=coyote_jump)
+                self.player.jump()
             elif key == 's':
-                self.player.quick_land()
+                self.player.quick_land()  # Add this line
         elif self.game_state in [GameState.MENU, GameState.GAME_OVER]:
             if key == ' ':
                 self.reset_game()
@@ -267,7 +402,7 @@ class PortalRunner:
     def handle_special_key(self, key):
         """Handle special key press (arrow keys)"""
         if self.game_state == GameState.PLAYING:
-            from OpenGL.GLUT import GLUT_KEY_LEFT, GLUT_KEY_RIGHT, GLUT_KEY_UP
+            from OpenGL.GLUT import GLUT_KEY_LEFT, GLUT_KEY_RIGHT, GLUT_KEY_UP, GLUT_KEY_DOWN
 
             if key == GLUT_KEY_LEFT:
                 self.player.move_left()
@@ -275,3 +410,5 @@ class PortalRunner:
                 self.player.move_right()
             elif key == GLUT_KEY_UP:
                 self.player.jump()
+            elif key == GLUT_KEY_DOWN:
+                self.player.quick_land()
