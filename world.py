@@ -113,10 +113,10 @@ class PlatformChunk:
             max_jump_distance = platform_speed * 24 * 0.8  # 80% of theoretical max jump distance for safety
 
             # Cap the max gap to be jumpable
-            min_gap = max(0.5, min(0.8 + self.chunk_id * 0.05, 1.5))  # Starts at 0.5-0.8, max 1.5
-            max_gap = max(1.0, min(1.5 + self.chunk_id * 0.1, 3.0))  # Starts at 1.0-1.5, max 3.0
+            min_gap = max(1.5, min(2.0 + self.chunk_id * 0.1, 3.0))  # Starting with larger gaps (1.5)
+            max_gap = max(2.5, min(3.5 + self.chunk_id * 0.1, 5.0))  # Larger maximum (5.0)
 
-            # Add gap - always present but size varies
+            # Add gap - always present and larger
             gap = random.uniform(min_gap, max_gap)
             current_z -= gap
     def generate_coins(self):
@@ -240,16 +240,14 @@ class WorldManager:
         """Check if player is on a platform"""
         player_bounds = player.get_bounding_box()
 
-        # Add a minimal edge grace distance
-        edge_grace = 0.2  # Very small forgiveness at platform edges
-
+        # Remove edge grace entirely - use exact platform boundaries
         for chunk in self.platform_chunks:
             for platform in chunk.platforms:
                 platform_bounds = {
                     'min_x': platform['x'] - platform['width'] / 2,
                     'max_x': platform['x'] + platform['width'] / 2,
-                    'min_z': platform['z'] - platform['length'] - edge_grace,  # Small extension
-                    'max_z': platform['z'] + edge_grace,  # Small extension
+                    'min_z': platform['z'] - platform['length'],  # Exact edge
+                    'max_z': platform['z'],  # Exact edge
                     'y': platform['y']
                 }
 
