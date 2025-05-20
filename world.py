@@ -64,6 +64,7 @@ class PlatformChunk:
         self.generate_coins()
         self.maybe_add_portal()
 
+    # Modified code for world.py
     def generate_platforms(self):
         """Generate platforms for this chunk"""
         current_z = self.start_z
@@ -106,12 +107,18 @@ class PlatformChunk:
             # Move to next platform position
             current_z -= length
 
-            # Random gap between platforms (less likely in early chunks)
-            gap_chance = GAP_CHANCE * 0.5 if self.chunk_id < 5 else GAP_CHANCE
-            if random.random() < gap_chance:
-                gap = random.uniform(1.5, 4.0)
-                current_z -= gap
+            # Always add a gap between platforms, with size based on chunk_id (difficulty)
+            # Calculate maximum safe jump distance based on current platform speed
+            platform_speed = BASE_PLATFORM_SPEED * (1.0 + min(self.chunk_id * SPEED_INCREASE_RATE, 4.0))
+            max_jump_distance = platform_speed * 24 * 0.8  # 80% of theoretical max jump distance for safety
 
+            # Cap the max gap to be jumpable
+            min_gap = max(0.5, min(0.8 + self.chunk_id * 0.05, 1.5))  # Starts at 0.5-0.8, max 1.5
+            max_gap = max(1.0, min(1.5 + self.chunk_id * 0.1, 3.0))  # Starts at 1.0-1.5, max 3.0
+
+            # Add gap - always present but size varies
+            gap = random.uniform(min_gap, max_gap)
+            current_z -= gap
     def generate_coins(self):
         """Generate coins on platforms aligned with lanes"""
         for platform in self.platforms:
@@ -233,13 +240,16 @@ class WorldManager:
         """Check if player is on a platform"""
         player_bounds = player.get_bounding_box()
 
+        # Add a minimal edge grace distance
+        edge_grace = 0.2  # Very small forgiveness at platform edges
+
         for chunk in self.platform_chunks:
             for platform in chunk.platforms:
                 platform_bounds = {
                     'min_x': platform['x'] - platform['width'] / 2,
                     'max_x': platform['x'] + platform['width'] / 2,
-                    'min_z': platform['z'] - platform['length'],
-                    'max_z': platform['z'],
+                    'min_z': platform['z'] - platform['length'] - edge_grace,  # Small extension
+                    'max_z': platform['z'] + edge_grace,  # Small extension
                     'y': platform['y']
                 }
 
@@ -249,18 +259,12 @@ class WorldManager:
                         player_bounds['min_z'] <= platform_bounds['max_z'] and
                         player_bounds['max_z'] >= platform_bounds['min_z']):
 
-                    # For jumping players, be more lenient with vertical collision
+                    # Check vertical position with standard tolerance
                     vertical_tolerance = COLLISION_TOLERANCE
-                    if player.is_jumping or player.jump_height > 0:
-                        # Allow larger tolerance when jumping
-                        vertical_tolerance = 2.0  # Much more tolerant for jumping players
-
-                    # Check vertical position
                     if abs(player_bounds['y'] - platform_bounds['y']) < vertical_tolerance:
                         return True
 
         return False
-
     def check_coin_collection(self, player):
         """Check for coin collection and return collected coins"""
         collected_coins = []

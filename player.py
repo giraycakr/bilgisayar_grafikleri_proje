@@ -81,11 +81,16 @@ class Player:
             self.target_x = LANE_POSITIONS[Lane.CENTER]
             self.is_moving_lanes = True
 
-    def jump(self):
-        """Make player jump if on ground"""
-        if not self.is_jumping and self.jump_height == 0:
+    def jump(self, allow_coyote_jump=False):
+        """Make player jump if on ground or in coyote time"""
+        if not self.is_jumping and (self.jump_height == 0 or allow_coyote_jump):
             self.is_jumping = True
 
+    def quick_land(self):
+        """Make player quickly return to the ground if jumping"""
+        if self.jump_height > 0:
+            self.is_jumping = False
+            self.jump_height = 0
     def get_position(self):
         """Get player's current position"""
         return (self.x, self.y + self.jump_height, self.z)

@@ -22,6 +22,8 @@ class PortalRunner:
         self.game_state = GameState.MENU
         self.score = 0
         self.high_score = 0
+        self.last_on_platform = 0  # Add this line to track when player was last on platform
+        self.coyote_time = 0.08  # Allow jumping for 0.15 seconds after leaving platform
 
         # Game objects
         self.player = Player()
@@ -55,6 +57,8 @@ class PortalRunner:
 
     def update_playing(self):
         """Update game when playing"""
+        current_time = time.time()
+
         # Get current speeds from world manager
         platform_speed = self.world_manager.get_current_speed()
         lane_switch_speed = self.world_manager.get_lane_switch_speed()
@@ -68,14 +72,21 @@ class PortalRunner:
         # Check platform collision - be more lenient with jumping players
         on_platform = self.world_manager.check_platform_collision(self.player)
 
-        # Only end game if player is falling (not jumping) and not on platform
+        # Update last_on_platform time if currently on platform
+        if on_platform:
+            self.last_on_platform = current_time
+
+        # Only end game if player is falling, not on platform, AND coyote time expired
         if not on_platform:
-            # If player is jumping or recently jumped, give them some grace time
-            if self.player.is_jumping or self.player.jump_height > 0.1:
-                # Player is actively jumping, don't end game
+            # Check if we're in coyote time (recently left platform)
+            in_coyote_time = (current_time - self.last_on_platform) < self.coyote_time
+
+            # If player is jumping, recently jumped, or in coyote time, don't end game
+            if self.player.is_jumping or self.player.jump_height > 0.1 or in_coyote_time:
+                # Player is either jumping or recently left platform, don't end game
                 pass
             else:
-                # Player is on the ground and not on a platform
+                # Player is on the ground, not on a platform, and coyote time expired
                 self.game_state = GameState.GAME_OVER
                 if self.score > self.high_score:
                     self.high_score = self.score
@@ -154,11 +165,11 @@ class PortalRunner:
         glEnable(GL_LIGHT0)
         glColor3f(1.0, 1.0, 1.0)
 
-        # Position camera behind player
+        # Position camera behind player with better angle to see gaps
         player_pos = self.player.get_position()
         gluLookAt(
-            player_pos[0], player_pos[1] + 1.5, player_pos[2] + CAMERA_DISTANCE,  # Eye position
-            player_pos[0], player_pos[1], player_pos[2] - 5,  # Look at position
+            player_pos[0], player_pos[1] + 2.5, player_pos[2] + CAMERA_DISTANCE,  # Higher eye position
+            player_pos[0], player_pos[1], player_pos[2] - 10,  # Looking further ahead
             0, 1, 0  # Up vector
         )
 
@@ -244,7 +255,11 @@ class PortalRunner:
             elif key == 'd':
                 self.player.move_right()
             elif key == 'w':
-                self.player.jump()
+                # Allow jumping during coyote time
+                coyote_jump = (time.time() - self.last_on_platform) < self.coyote_time
+                self.player.jump(allow_coyote_jump=coyote_jump)
+            elif key == 's':
+                self.player.quick_land()
         elif self.game_state in [GameState.MENU, GameState.GAME_OVER]:
             if key == ' ':
                 self.reset_game()

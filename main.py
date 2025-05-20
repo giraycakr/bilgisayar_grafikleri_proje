@@ -41,7 +41,16 @@ def keyboard(key, x, y):
 
 def special_keys(key, x, y):
     """GLUT special keys callback (arrow keys)"""
-    game.handle_special_key(key)
+    from OpenGL.GLUT import GLUT_KEY_LEFT, GLUT_KEY_RIGHT, GLUT_KEY_UP, GLUT_KEY_DOWN
+
+    if key == GLUT_KEY_LEFT:
+        game.player.move_left()
+    elif key == GLUT_KEY_RIGHT:
+        game.player.move_right()
+    elif key == GLUT_KEY_UP:
+        game.player.jump()
+    elif key == GLUT_KEY_DOWN:
+        game.player.quick_land()
 
 
 def idle():
